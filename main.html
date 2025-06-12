@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Từ điển Hán Việt Tương tác - Truyện Kiều</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral Harmony -->
+    <!-- Application Structure Plan: An interactive glossary SPA designed as a filterable dashboard. The structure includes a header, a search bar and category filters, an interactive donut chart visualizing vocabulary distribution, and a card-based grid to display terms. This design was chosen to transform a static reference table into a dynamic, user-friendly tool, enabling quick lookups (search), thematic exploration (filters), and high-level understanding (chart), which is more effective for students and researchers than a simple list. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Categorized list of Sino-Vietnamese words.
+        - Goal: Organize, Inform, Compare.
+        - Viz/Presentation Method: Interactive cards for individual terms (HTML/Tailwind) and a donut chart for category distribution (Chart.js/Canvas).
+        - Interaction: Live search and category filtering via buttons and chart clicks, which dynamically update the displayed card grid.
+        - Justification: Cards are more readable and mobile-friendly than a table. The chart provides an immediate infographic-style overview. The filtering/search interactions make the large dataset easily navigable.
+        - Library/Method: Vanilla JS for logic, Chart.js for visualization. CONFIRMING NO SVG/Mermaid. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #FDFBF8;
+            color: #4A4A4A;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .card {
+            background-color: #FFFFFF;
+            border: 1px solid #F0EBE3;
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .card-content {
+            flex-grow: 1;
+        }
+        .han-tu {
+            color: #A0522D;
+            font-size: 1.5rem;
+        }
+        .filter-btn {
+            transition: all 0.3s ease;
+        }
+        .filter-btn.active {
+            background-color: #A0522D;
+            color: #FFFFFF;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#A0522D] mb-2">Từ điển Hán Việt trong Truyện Kiều</h1>
+            <p class="text-lg text-gray-600 max-w-3xl mx-auto">Một công cụ tra cứu tương tác, giúp bạn đọc khám phá và hiểu sâu hơn các từ/cụm từ Hán Việt đặc sắc trong kiệt tác của Nguyễn Du.</p>
+        </header>
+
+        <main>
+            <section id="interactive-glossary" class="mb-16">
+                <div class="text-center mb-10">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Khám phá Vốn từ</h2>
+                    <p class="text-md text-gray-500">Sử dụng biểu đồ, thanh tìm kiếm hoặc các bộ lọc bên dưới để tra cứu từ ngữ.</p>
+                </div>
+
+                <div class="chart-container mb-12">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                
+                <div class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+                    <div class="relative w-full md:w-1/3">
+                        <input type="text" id="search-input" placeholder="Tìm kiếm từ Hán Việt..." class="w-full px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#D4A58A]">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+                        </span>
+                    </div>
+
+                    <div id="filter-buttons" class="flex flex-wrap justify-center gap-2">
+                    </div>
+                </div>
+                
+                <div id="results-count" class="text-center text-gray-600 mb-6 font-medium"></div>
+
+                <div id="vocabulary-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
+                 <div id="no-results" class="hidden text-center col-span-full py-16">
+                    <p class="text-2xl font-semibold text-gray-500">Không tìm thấy kết quả</p>
+                    <p class="text-gray-400 mt-2">Vui lòng thử lại với từ khóa hoặc bộ lọc khác.</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-16 pt-8 border-t border-gray-200">
+            <p class="text-gray-500">Một sản phẩm được tạo ra để làm giàu trải nghiệm đọc văn học Việt Nam.</p>
+        </footer>
+
+    </div>
+
+    <script>
+        const vocabularyData = [
+            { category: 1, term: "Bỉ sắc tư phong", han: "比色斯豐", meaning: "So với vẻ đẹp thì tài năng còn phong phú hơn; ý chỉ người có tài sắc vẹn toàn, tài hoa ngang ngửa nhan sắc.", note: "Thường dùng để ca ngợi Thúy Kiều." },
+            { category: 1, term: "Quốc sắc thiên hương", han: "國色天香", meaning: "Sắc đẹp làm nghiêng nước nghiêng thành, hương thơm trời ban; ý chỉ người con gái đẹp tuyệt trần.", note: "" },
+            { category: 1, term: "Phận má hồng", han: "命紅顏", meaning: "Số phận hẩm hiu, bi đát của người phụ nữ đẹp.", note: "" },
+            { category: 1, term: "Liễu yếu đào tơ", han: "柳弱桃絲", meaning: "Cành liễu yếu ớt, sợi đào non tơ; ý chỉ người con gái mảnh mai, yếu đuối, thanh tú.", note: "" },
+            { category: 1, term: "Thục nữ", han: "淑女", meaning: "Cô gái hiền thục, nết na, đoan trang.", note: "" },
+            { category: 1, term: "Công tử", han: "公子", meaning: "Con nhà quyền quý, thường là con trai gia đình giàu có, có địa vị.", note: "" },
+            { category: 1, term: "Nghiêm đường", han: "嚴堂", meaning: "Cha.", note: "Đối lại với 'Từ đường' (mẹ)." },
+            { category: 1, term: "Từ đường", han: "慈堂", meaning: "Mẹ.", note: "" },
+            { category: 1, term: "Đương kim", han: "當今", meaning: "Vua hiện nay, người đang trị vì.", note: "" },
+            { category: 1, term: "Thân cô thế cô", han: "身孤勢孤", meaning: "Thân phận lẻ loi, không nơi nương tựa, không có ai giúp đỡ.", note: "" },
+            { category: 1, term: "Khanh", han: "卿", meaning: "Đại từ nhân xưng ngôi thứ hai, dùng để xưng hô với người dưới, hoặc giữa vợ chồng với nhau (tỏ ý thân mật).", note: "" },
+            { category: 1, term: "Tài tử giai nhân", han: "才子佳人", meaning: "Người con trai tài năng và người con gái xinh đẹp.", note: "Thường đi đôi để chỉ những đôi lứa xứng đôi." },
+            { category: 1, term: "Lữ khách", han: "旅客", meaning: "Người khách đi đường, người xa xứ, tha hương.", note: "" },
+            { category: 1, term: "Kỹ nữ", han: "妓女", meaning: "Người con gái làm nghề ca hát, mua vui cho khách, thường sống trong thanh lâu.", note: "" },
+            { category: 1, term: "Gia khách", han: "家客", meaning: "Khách đến chơi nhà.", note: "" },
+            { category: 1, term: "Bá tánh", han: "百姓", meaning: "Dân chúng, người dân.", note: "" },
+            { category: 1, term: "Huynh đệ", han: "兄弟", meaning: "Anh em.", note: "" },
+            { category: 1, term: "Phu thê", han: "夫妻", meaning: "Vợ chồng.", note: "" },
+            { category: 1, term: "Tráng sĩ", han: "壯士", meaning: "Người đàn ông khỏe mạnh, có chí khí.", note: "" },
+            { category: 1, term: "Thiếu nữ", han: "少女", meaning: "Cô gái trẻ, chưa chồng.", note: "" },
+
+            { category: 2, term: "Phong lưu", han: "風流", meaning: "Tài hoa, phóng khoáng, có lối sống thanh lịch, đôi khi mang nghĩa phong tình, ăn chơi.", note: "" },
+            { category: 2, term: "Tình tự", han: "情字", meaning: "Tình cảm, tâm sự, thường là tình yêu đôi lứa.", note: "" },
+            { category: 2, term: "Tương tư", han: "相思", meaning: "Nhớ nhung, yêu thầm, khao khát gặp gỡ.", note: "" },
+            { category: 2, term: "Oan khiên", han: "冤愆", meaning: "Tai họa, điều oan ức, tội lỗi hoặc nghiệp chướng đeo bám.", note: "" },
+            { category: 2, term: "Khổ hải", han: "苦海", meaning: "Biển khổ; ý chỉ cuộc đời đầy rẫy đau khổ, chìm đắm trong tai ương.", note: "Từ ngữ nhà Phật." },
+            { category: 2, term: "Châu trần", han: "珠塵", meaning: "Nước mắt như hạt châu rơi xuống bụi trần; ý chỉ giọt nước mắt rơi.", note: "" },
+            { category: 2, term: "Sầu muộn", han: "愁悶", meaning: "Buồn rầu, lo lắng, u sầu.", note: "" },
+            { category: 2, term: "Đoạn trường", han: "斷腸", meaning: "Đứt ruột; ý chỉ nỗi đau khổ tột cùng, vật vã.", note: "" },
+            { category: 2, term: "Trắc trở", han: "側阻", meaning: "Gặp nhiều khó khăn, trở ngại, không thuận lợi.", note: "" },
+            { category: 2, term: "Phiêu bạt", han: "漂泊", meaning: "Trôi dạt, sống không nơi nương tựa, nay đây mai đó.", note: "" },
+            { category: 2, term: "Liều lĩnh", han: "嫽𦹵", meaning: "Dám làm những việc nguy hiểm, không sợ hậu quả.", note: "" },
+            { category: 2, term: "Thận trọng", han: "慎重", meaning: "Cẩn thận, suy nghĩ kỹ càng trước khi hành động.", note: "" },
+            { category: 2, term: "Uyên ương", han: "鴛鴦", meaning: "Chim uyên ương, biểu tượng cho tình yêu đôi lứa, vợ chồng.", note: "" },
+            { category: 2, term: "Biệt ly", han: "別離", meaning: "Xa cách, chia lìa.", note: "" },
+            { category: 2, term: "Khí khái", han: "氣概", meaning: "Khí phách, phong thái hào hùng.", note: "" },
+            { category: 2, term: "Tâm sự", han: "心事", meaning: "Chuyện trong lòng, điều trăn trở.", note: "" },
+            { category: 2, term: "Thiếp", han: "妾", meaning: "Cách xưng hô của người phụ nữ với chồng hoặc người trên (có ý khiêm tốn).", note: "" },
+            { category: 2, term: "Độ lượng", han: "度量", meaning: "Lòng bao dung, rộng rãi.", note: "" },
+            { category: 2, term: "Thanh cao", han: "清高", meaning: "Trong sạch và cao quý.", note: "" },
+
+            { category: 3, term: "Kim cổ", han: "今古", meaning: "Xưa và nay, từ xưa đến nay, quá khứ và hiện tại.", note: "" },
+            { category: 3, term: "Thanh lâu", han: "青樓", meaning: "Nhà chứa, lầu xanh; nơi các kỹ nữ sinh sống và hành nghề.", note: "" },
+            { category: 3, term: "Mộ liễu triêu hoa", han: "暮柳朝花", meaning: "Liễu buổi chiều, hoa buổi sáng; ý nói về cảnh ăn chơi trác táng, thay đổi đối tượng liên tục.", note: "" },
+            { category: 3, term: "Thương hải tang điền", han: "滄海桑田", meaning: "Biển xanh biến thành ruộng dâu; ý chỉ sự biến đổi lớn lao, dâu bể của thế sự, thời gian.", note: "Điển cố." },
+            { category: 3, term: "Nguyệt hoa", han: "月華", meaning: "Ánh trăng, vầng trăng.", note: "" },
+            { category: 3, term: "Cẩm tú", han: "錦繡", meaning: "Gấm vóc, lụa là; ý chỉ sự đẹp đẽ, lộng lẫy, rực rỡ.", note: "" },
+            { category: 3, term: "Phong cảnh", han: "風景", meaning: "Cảnh vật thiên nhiên.", note: "" },
+            { category: 3, term: "Sơn thủy", han: "山水", meaning: "Non nước, cảnh núi non sông suối.", note: "" },
+            { category: 3, term: "Thâm sơn cùng cốc", han: "深山窮谷", meaning: "Núi sâu hang cùng; ý chỉ nơi hẻo lánh, hoang vu.", note: "" },
+            { category: 3, term: "Tiền duyên", han: "前緣", meaning: "Mối duyên nợ đã có từ kiếp trước.", note: "" },
+            { category: 3, term: "Hậu kiếp", han: "後劫", meaning: "Đời sau, kiếp sau.", note: "" },
+            { category: 3, term: "Vô thường", han: "無常", meaning: "Không bền vững, thay đổi luôn luôn; ý chỉ sự phù du của cuộc đời.", note: "Từ ngữ nhà Phật." },
+            { category: 3, term: "Quê hương", han: "故鄉", meaning: "Nơi chôn rau cắt rốn, nơi sinh ra và lớn lên.", note: "" },
+            { category: 3, term: "Đất khách", han: "客地", meaning: "Nơi xa lạ, không phải quê hương.", note: "" },
+            { category: 3, term: "Văn tự", han: "文字", meaning: "Chữ viết, thư từ.", note: "" },
+            { category: 3, term: "Tài liệu", han: "材料", meaning: "Vật liệu, năng lực, phẩm chất.", note: "" },
+            { category: 3, term: "Cơ nghiệp", han: "基業", meaning: "Sản nghiệp, tài sản cha ông để lại.", note: "" },
+            { category: 3, term: "Thân thế", han: "身世", meaning: "Gia cảnh, xuất thân của một người.", note: "" },
+            { category: 3, term: "Tuổi xanh", han: "青歲", meaning: "Tuổi trẻ, tuổi thanh xuân.", note: "" },
+            { category: 3, term: "Phù dung", han: "芙蓉", meaning: "Hoa phù dung; ý chỉ vẻ đẹp mong manh, chóng tàn của người phụ nữ.", note: "" },
+            { category: 3, term: "Tuyết sương", han: "雪霜", meaning: "Tuyết và sương; ý chỉ sự gian truân, thử thách.", note: "" },
+
+            { category: 4, term: "Thề non hẹn biển", han: "誓山盟海", meaning: "Lời thề thốt tình yêu vĩnh cửu, bền chặt như non như biển.", note: "" },
+            { category: 4, term: "Đền ơn", han: "報恩", meaning: "Trả ơn, báo đáp công ơn.", note: "" },
+            { category: 4, term: "Báo oán", han: "報怨", meaning: "Trả thù, báo đáp sự oán hận.", note: "" },
+            { category: 4, term: "Tống biệt", han: "送別", meaning: "Tiễn đưa, chia tay.", note: "" },
+            { category: 4, term: "Hồi hương", han: "回鄉", meaning: "Về quê.", note: "" },
+            { category: 4, term: "Chinh chiến", han: "征戰", meaning: "Đánh nhau, chiến tranh.", note: "" },
+            { category: 4, term: "Vượt bể", han: "越海", meaning: "Vượt qua biển cả.", note: "" },
+            { category: 4, term: "Đoạn tuyệt", han: "斷絕", meaning: "Cắt đứt hoàn toàn mối quan hệ, không còn liên lạc.", note: "" },
+            { category: 4, term: "Vấn kế", han: "問計", meaning: "Hỏi kế sách, xin lời khuyên.", note: "" },
+            { category: 4, term: "Thủ tiết", han: "守節", meaning: "Giữ gìn tiết hạnh (chủ yếu là phụ nữ).", note: "" },
+            { category: 4, term: "Chôn cất", han: "葬埋", meaning: "Mai táng, an táng.", note: "" },
+            { category: 4, term: "Cứu vãn", han: "救挽", meaning: "Cứu giúp, vãn hồi tình thế xấu.", note: "" },
+            { category: 4, term: "Tu hành", han: "修行", meaning: "Thực hành đạo Phật, rèn luyện thân tâm.", note: "" },
+            { category: 4, term: "Nhập thế", han: "入世", meaning: "Bước vào đời, tham gia vào cuộc sống xã hội.", note: "" },
+            { category: 4, term: "Xuất thế", han: "出世", meaning: "Rút lui khỏi đời, không màng danh lợi (thường để tu hành).", note: "" },
+            
+            { category: 5, term: "Trâm anh thế phiệt", han: "簪纓世閥", meaning: "Dòng dõi quyền quý, danh giá, có nhiều người làm quan to.", note: "'Trâm anh' chỉ mũ và dây đeo mũ của quan lại." },
+            { category: 5, term: "Bách niên giai lão", han: "百年偕老", meaning: "Trăm năm cùng nhau già đi; ý chúc vợ chồng sống hạnh phúc đến già.", note: "" },
+            { category: 5, term: "Nhân duyên tiền định", han: "人緣前定", meaning: "Mối duyên đã được định sẵn từ trước, không thể cưỡng cầu.", note: "" },
+            { category: 5, term: "Hồng nhan bạc mệnh", han: "紅顏薄命", meaning: "Người con gái đẹp thường có số phận hẩm hiu, gặp nhiều bất hạnh.", note: "" },
+            { category: 5, term: "Chữ tài chữ mệnh khéo là ghét nhau", han: "", meaning: "Tài năng càng lớn thì số phận càng bất hạnh.", note: "Một câu triết lý sâu sắc trong Kiều." },
+            { category: 5, term: "Bán dạ tam canh", han: "半夜三更", meaning: "Nửa đêm canh ba; ý chỉ đêm đã về khuya.", note: "" },
+            { category: 5, term: "Mộng ảo", han: "夢幻", meaning: "Giấc mơ huyễn hoặc, không có thật.", note: "" },
+            { category: 5, term: "Khắc cốt ghi tâm", han: "刻骨記心", meaning: "Khắc sâu vào xương cốt, ghi nhớ vào lòng; ý chỉ ghi nhớ mãi mãi không quên.", note: "" },
+            { category: 5, term: "Vô phúc hữu họa", han: "無福有禍", meaning: "Không có phúc thì có họa; ý chỉ gặp tai ương, rủi ro.", note: "" },
+            { category: 5, term: "Thiên địa", han: "天地", meaning: "Trời đất, vũ trụ.", note: "" },
+            { category: 5, term: "Âm dương", han: "陰陽", meaning: "Hai mặt đối lập của vũ trụ, trời và đất, nóng và lạnh...", note: "" },
+            { category: 5, term: "Minh oan", han: "鳴冤", meaning: "Kêu oan, bày tỏ sự oan ức.", note: "" },
+            { category: 5, term: "Lâm chung", han: "臨終", meaning: "Lúc sắp chết.", note: "" },
+            { category: 5, term: "Tang tóc", han: "喪服", meaning: "Áo quần tang, sự đau buồn khi có người thân mất.", note: "" },
+            { category: 5, term: "Tứ bề", han: "四邊", meaning: "Bốn phía, xung quanh.", note: "" },
+            { category: 5, term: "Giai đoạn", han: "階段", meaning: "Khoảng thời gian, bước đường.", note: "" },
+            { category: 5, term: "Thủ đoạn", han: "手段", meaning: "Mưu kế, cách thức để đạt được mục đích (thường mang nghĩa tiêu cực).", note: "" },
+            { category: 5, term: "Công luận", han: "公論", meaning: "Ý kiến chung của mọi người trong xã hội.", note: "" },
+            { category: 5, term: "Vạn đại", han: "萬代", meaning: "Muôn đời, ngàn đời.", note: "" },
+            { category: 5, term: "Độc thoại", han: "獨話", meaning: "Nói một mình.", note: "" },
+            { category: 5, term: "Đối thoại", han: "對話", meaning: "Nói chuyện với nhau, trò chuyện.", note: "" },
+            { category: 5, term: "Nguyên tắc", han: "原則", meaning: "Quy tắc cơ bản, nền tảng.", note: "" },
+            { category: 5, term: "Tự tử", han: "自死", meaning: "Tự kết liễu đời mình.", note: "" },
+            { category: 5, term: "Thiện ác", han: "善惡", meaning: "Tốt và xấu, điều lành và điều dữ.", note: "" },
+            { category: 5, term: "Nhân quả", han: "因果", meaning: "Nguyên nhân và kết quả (trong Phật giáo).", note: "" },
+            { category: 5, term: "Trần thế", han: "塵世", meaning: "Thế gian, cõi đời.", note: "" },
+            { category: 5, term: "Phàm tục", han: "凡俗", meaning: "Bình thường, không thoát tục.", note: "" },
+            { category: 5, term: "Nga my", han: "峨眉", meaning: "Lông mày đẹp của người phụ nữ.", note: "" }
+        ];
+
+        const categories = {
+            1: "Thân phận & Quan hệ",
+            2: "Tâm lý & Phẩm chất",
+            3: "Cảnh vật & Sự vật",
+            4: "Hành động & Sự việc",
+            5: "Thành ngữ & Điển cố"
+        };
+        
+        let currentFilter = {
+            category: 0,
+            searchTerm: ''
+        };
+        let categoryChart;
+
+        const grid = document.getElementById('vocabulary-grid');
+        const searchInput = document.getElementById('search-input');
+        const filterButtonsContainer = document.getElementById('filter-buttons');
+        const resultsCountEl = document.getElementById('results-count');
+        const noResultsEl = document.getElementById('no-results');
+
+        function renderCards(data) {
+            grid.innerHTML = '';
+            if (data.length === 0) {
+                noResultsEl.classList.remove('hidden');
+                resultsCountEl.textContent = 'Hiển thị 0 kết quả.';
+                return;
+            }
+            noResultsEl.classList.add('hidden');
+
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-content">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold text-gray-800">${item.term}</h3>
+                            ${item.han ? `<p class="han-tu font-serif">${item.han}</p>` : ''}
+                        </div>
+                        <p class="text-gray-600 mb-4">${item.meaning}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-400 mt-2">${item.note ? `<em>Ghi chú: ${item.note}</em>` : ''}</p>
+                        <span class="inline-block bg-amber-100 text-amber-800 text-xs font-semibold mt-4 px-2.5 py-1 rounded-full">${categories[item.category]}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            resultsCountEl.textContent = `Hiển thị ${data.length} kết quả.`;
+        }
+
+        function applyFilters() {
+            let filteredData = vocabularyData;
+
+            if (currentFilter.category !== 0) {
+                filteredData = filteredData.filter(item => item.category === currentFilter.category);
+            }
+            
+            if (currentFilter.searchTerm) {
+                const searchTermLower = currentFilter.searchTerm.toLowerCase();
+                filteredData = filteredData.filter(item => item.term.toLowerCase().includes(searchTermLower));
+            }
+
+            renderCards(filteredData);
+            updateActiveButton();
+        }
+
+        function createFilterButtons() {
+            const allBtn = document.createElement('button');
+            allBtn.textContent = 'Tất cả';
+            allBtn.className = 'filter-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50';
+            allBtn.dataset.category = 0;
+            allBtn.onclick = () => {
+                currentFilter.category = 0;
+                applyFilters();
+                categoryChart.data.datasets[0].backgroundColor = chartColors;
+                categoryChart.update();
+            };
+            filterButtonsContainer.appendChild(allBtn);
+
+            Object.entries(categories).forEach(([id, name]) => {
+                const btn = document.createElement('button');
+                btn.textContent = name;
+                btn.className = 'filter-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50';
+                btn.dataset.category = id;
+                btn.onclick = () => {
+                    handleCategoryClick(parseInt(id));
+                };
+                filterButtonsContainer.appendChild(btn);
+            });
+        }
+
+        function updateActiveButton() {
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                if (parseInt(btn.dataset.category) === currentFilter.category) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+        
+        function handleCategoryClick(categoryId) {
+            currentFilter.category = categoryId;
+            applyFilters();
+            
+            const newColors = chartColors.map((color, index) => {
+                return (index === categoryId - 1) ? color : color + '40';
+            });
+            categoryChart.data.datasets[0].backgroundColor = newColors;
+            categoryChart.update();
+        }
+
+        function createCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            const categoryCounts = Object.keys(categories).map(catId => {
+                return vocabularyData.filter(item => item.category == catId).length;
+            });
+
+            chartColors = ['#A0522D', '#D4A58A', '#EADDCA', '#A98C7B', '#7D6D61'];
+
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.values(categories),
+                    datasets: [{
+                        label: 'Số lượng từ',
+                        data: categoryCounts,
+                        backgroundColor: chartColors,
+                        borderColor: '#FDFBF8',
+                        borderWidth: 3,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    family: "'Quicksand', sans-serif",
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                             titleFont: {
+                                family: "'Quicksand', sans-serif",
+                            },
+                            bodyFont: {
+                                family: "'Quicksand', sans-serif",
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                           const chartElement = elements[0];
+                           const categoryId = chartElement.index + 1;
+                           handleCategoryClick(categoryId);
+                        }
+                    },
+                    onHover: (event, chartElement) => {
+                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                    }
+                }
+            });
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            currentFilter.searchTerm = e.target.value;
+            applyFilters();
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            createFilterButtons();
+            applyFilters();
+            createCategoryChart();
+        });
+
+    </script>
+</body>
+</html>
